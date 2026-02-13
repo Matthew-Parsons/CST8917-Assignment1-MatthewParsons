@@ -1,0 +1,21 @@
+# Part 1: Paper Summary
+The paper argues that the current serverless computing platforms represent both progression and regression in cloud computing. The authors argue that serverless systems, especially Functions-as-a-Service (FaaS) systems, make cloud development easier because they allow developers to not worry about server management or scaling. Instead, applications automatically scale based on demand, and users pay only for the computing time they actually use. However, the authors also argue that today’s serverless systems also make many important types of computing harder or less efficient, especially data-intensive and distributed applications, since they limit innovation and reduce the cloud’s ability to support advanced workloads.
+
+One limitation of serverless functions the authors make note of is execution time. Serverless functions are short-lived, and often only active for about fifteen minutes. These functions are also stateless, meaning they cannot reliably store information between separate instances. Because of this, applications must constantly save and reload data from an external storage, which increase delays and cost. These issues make it difficult to build applications that need long-running or continuous processes in order to function effectively.
+
+Some other limitations noted are the issues with communication and networking. Serverless functions cannot directly communicate with each other, and instead must exchange data through cloud storage services, which are much slower than direct network communication. The network bandwidth available to each function is also limited, creating input/output bottlenecks when large datasets are involved. These restrictions slow down programs that require frequent communication or data sharing.
+
+The authors also criticize serverless systems for encouraging a “data shipping” approach, where data is repeatedly moved to functions instead of running code near where data is stored. Moving large amounts of data across networks increases latency and cost, which goes against long-standing system design principles that recommend bringing computation to the data whenever possible.
+
+Another limitation is the lack of access to specialized hardware. Many modern applications, especially ones involved in machine learning and data processing, depend on GPUs or other accelerators. Contrary to this, most current serverless platforms usually provide only limited CPU and memory resources, preventing developers from using hardware that could significantly improve performance.
+
+These issues together create problems for distributed and stateful applications. Distributed systems require frequent coordination and communication between nodes, but serverless functions must coordinate through slow storage systems due to their inability to do direct connection. Maintaining a shared or consistent state quickly becomes inefficient and costly, making complex distributed protocols impractical. As a result, serverless works best for simple, independent tasks rather than advanced distributed computing. 
+
+To improve cloud programming in the future, the authors suggest several possible solutions. Firstly, systems should support flexible placement of code and data so computation can move closer to stored data. Secondly, cloud platforms should provide access to heterogeneous hardware such as GPUs and other accelerators to allow for serverless programs to make better use of modern applications. Finally, applications should be able to run as long-lived, addressable services that still benefit from autoscaling. Additional improvements could potentially include better programming models for distributed computing, and ways to specify performance goals through service-level objectives.
+
+Overall, the paper concludes that while serverless computing has real benefits, the current systems and designs prevent developers from fully making use of the cloud’s potential. Future systems need to keep the convenience of serverless computing, while removing the limitations that hinder efficient data transfer and distributed computing.
+
+# Part 2: Azure Durable Functions Deep Dive
+
+
+# Part 3: Critical Evaluation
