@@ -16,6 +16,48 @@ To improve cloud programming in the future, the authors suggest several possible
 Overall, the paper concludes that while serverless computing has real benefits, the current systems and designs prevent developers from fully making use of the cloud’s potential. Future systems need to keep the convenience of serverless computing, while removing the limitations that hinder efficient data transfer and distributed computing.
 
 # Part 2: Azure Durable Functions Deep Dive
+## Orchestration model
+Azure Durable Functions extend normal Azure Functions with a workflow-orchestration model.
+1. A client function starts an orchestration. 
+2. The orchestrator function defines the workflow in code and issues commands to run activity functions, which encapsulate individual units of work (e.g., compute tasks).
+3. The orchestrator tracks progress, handles control flow and invokes activities either sequentially or in parallel. 
 
+Unlike basic FaaS, where each function invocation is independent and stateless, the orchestrator resumes execution through checkpointing and replay, giving a durable workflow that persists beyond single invocations. This model addresses some serverless limitations by coordinating many small functions as a cohesive logic flow, rather than leaving the developer to manually chain or coordinate them externally. In the context of the paper, Durable Functions therefore provide more structure than basic FaaS, helping with workflows that would otherwise require external glue code or orchestration services.
+
+## State management
+Durable Functions manage state by storing an execution history in durable storage (e.g., Azure Storage). When an orchestrator calls activities or yields control, the framework checkpoints the current state and logs that event. If the function needs to resume after a restart or wait (e.g., for external events), the orchestrator function code is replayed from the start using the history to reconstruct local state. This event sourcing approach effectively makes a normally stateless FaaS environment stateful, addressing the core criticism that serverless functions have no built-in memory across invocations. By checkpointing and replaying the workflow, Durable Functions remember control flow and intermediate results without forcing developers to manually store state in external databases, reducing the “two steps back” problem of statelessness.
+
+## Execution timeouts
+Azure Functions in the Consumption plan have hard limits on execution duration (e.g., ~5–15 minutes), which is a known challenge for long running jobs. Durable Functions orchestrator functions bypass this because their execution time isn’t measured in a single continuous run; instead, orchestrators checkpoint, unload, and get re-invoked as needed. This allows workflows to span minutes, hours, or even days. However, activity functions still run under the regular Azure Functions execution limits, meaning each activity call must complete within the configured timeout. While orchestration can chain multiple activities over a long period, individual activities are still subject to function runtime constraints. This design both mitigates and shifts the timeout criticism from overall workflows to individual operation limits.
+
+## Communication between functions
+With Durable Functions, the orchestrator and activity functions communicate through the Durable Task Framework. When an orchestrator schedules an activity, it writes a message to storage queues and checkpoints the desired action. The activity function then runs independently, and results are stored in history. On replay, the orchestrator reads the stored results rather than repeating work. While this still relies on Azure Storage as an intermediary (which is slower than direct networking), the orchestrator’s replay and checkpoint logic reduce how often developers must explicitly handle data movement. In contrast to the paper’s criticism that serverless functions exchange data via slow storage, Durable Functions at least encapsulate and automate much of the pattern. However, the underlying storage reliance means some communication limitations remain.
+
+## Parallel execution (fan-out/fan-in)
+Durable Functions support the fan-out/fan-in pattern, where an orchestrator fires many activity functions in parallel and then waits for all to complete before continuing. This significantly improves parallelism compared to a single function invoking each activity sequentially. The pattern is implemented using normal code constructs (e.g., Task.WhenAll(...)), and the orchestrator automatically tracks each activity’s completion. This approach addresses distributed execution concerns from the paper: rather than forcing the developer to orchestrate many separate FaaS calls manually (with intermediate storage), the orchestrator handles concurrency within its workflow boundary. Although underlying storage is still used for state and messaging, fan-out/fan-in reduces round trips and simplifies parallel logic in distributed work.
 
 # Part 3: Critical Evaluation
+Azure Durable Functions significantly improve the usability of serverless platforms by adding workflow orchestration and state management on top of standard Functions-as-a-Service (FaaS). However, two major criticisms raised in Serverless Computing: One Step Forward, Two Steps Back remain unresolved or only partially addressed: communication overhead through storage intermediaries and limited access to specialized hardware. These limitations persist because they stem from architectural and economic choices in serverless platforms rather than from missing programming abstractions.
+
+The first unresolved issue is the reliance on storage-based communication. Durable Functions make workflows easier by allowing orchestrator functions to schedule activity functions and track results automatically. However, communication between orchestrators and activities still relies on Azure Storage queues and tables to record state and deliver messages. Durable Functions automate this process so developers no longer manually handle storage operations, but the underlying mechanism remains the same: functions exchange information via persistent storage rather than direct network communication.
+
+This means that communication latency and bandwidth limitations are still present, especially for workloads requiring frequent, fine-grained coordination among distributed tasks. The paper criticizes serverless platforms for forcing communication through slow storage systems rather than direct networking, which harms distributed computing performance. Durable Functions improve programmability but do not fundamentally change this architectural reality. Distributed protocols, real-time systems, or tightly coupled parallel algorithms still suffer from performance overhead because direct, low-latency communication between functions is unavailable.
+
+The second limitation that persists is the lack of access to specialized hardware such as GPUs or other accelerators. Durable Functions orchestrate workflows and preserve state, but activity functions still execute within standard Azure Functions environments. These environments typically provide CPU resources with limited memory and no guaranteed access to GPUs or domain-specific accelerators.
+
+As the paper emphasizes, modern computing innovation increasingly depends on hardware acceleration, particularly for machine learning and analytics. Durable Functions do not address this concern because orchestration alone cannot change resource availability. Developers still need to move workloads to virtual machines, container services, or specialized compute platforms to leverage hardware acceleration. Therefore, serverless remains unsuitable for many performance-intensive workloads, even with orchestration improvements.
+
+Given these limitations, my verdict is that Azure Durable Functions represent meaningful progress in usability and developer productivity but do not fully achieve the vision proposed by the paper’s authors. Durable Functions solve important practical problems: they make workflows stateful, allow long-running processes, and simplify parallel execution patterns such as fan-out/fan-in. These improvements reduce friction when building serverless applications and make more complex business workflows feasible within a serverless model.
+
+However, Durable Functions mainly work around serverless limitations rather than eliminate them. Communication still depends on storage intermediaries, execution still runs within constrained compute environments, and hardware specialization remains inaccessible. The core architectural issues identified in the paper—efficient data processing and scalable distributed coordination—are therefore only partially addressed.
+
+In conclusion, Durable Functions are an important step forward for serverless development, but they do not yet represent the fundamental shift envisioned by the authors. True progress would require deeper architectural changes that enable direct communication, flexible placement of computation near data, and access to heterogeneous hardware while maintaining autoscaling benefits.
+
+# References
+- https://learn.microsoft.com/en-us/azure///azure-functions/durable/durable-functions-overview?tabs=in-process%2Cnodejs-v3%2Cv1-model&pivots=csharp
+- https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-orchestrations?tabs=csharp-inproc
+- https://learn.microsoft.com/en-us/azure/azure-functions/durable/durable-functions-cloud-backup?tabs=csharp
+
+# AI disclosure
+AI was used for:
+- summarizing parts of the paper
